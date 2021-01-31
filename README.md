@@ -1,4 +1,4 @@
-#Running CrabbyChat
+# Running CrabbyChat
 - Development
     - in /server run 'cargo run server'
     - in /client run 'ng server'\
