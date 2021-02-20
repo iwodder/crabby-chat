@@ -6,19 +6,26 @@ use crate::chat::chat_data::{ChatUser, ChatMessage, ChatRooms};
 use tungstenite::Message;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
+use log::info;
 
 pub struct ChatRoom {
+   data: Arc<ChatData>
+}
+
+struct ChatData {
     name: String,
-    users: Arc<Mutex<HashMap<String, Sender<Message>>>>,
-    history: Arc<RwLock<Vec<Message>>>
+    users: Mutex<HashMap<String, Sender<Message>>>,
+    history: RwLock<Vec<Message>>
 }
 
 impl ChatRoom {
     pub fn new(name: String) -> Self {
         ChatRoom {
-            name,
-            users: Arc::new(Mutex::new(HashMap::new())),
-            history: Arc::new(RwLock::new(vec![]))
+            data: Arc::new(ChatData {
+                name,
+                users: Mutex::new(HashMap::new()),
+                history: RwLock::new(vec![])
+            })
         }
     }
 
@@ -27,7 +34,7 @@ impl ChatRoom {
         self.run_receiver(rx);
         loop {
             if let Ok(client) = new_client.recv() {
-                println!("Accepting new user into the room.");
+                info!("Accepting new user into the room.");
                 self.join_room(client, tx.clone());
             } else {
                 //receive error means the sending end closed
@@ -38,19 +45,21 @@ impl ChatRoom {
 
     //Relays messages to all clients in the room
     fn run_receiver(&mut self, rx: Receiver<Message>) {
-        let clone = self.users.clone();
+        let clone = self.data.clone();
         thread::Builder::new().name(String::from("Receiver"))
             .spawn(move || {
-                let users = clone;
-                println!("Running receiver thread");
+                let mut room_data = clone;
+                info!("Running receiver thread");
                 loop {
                     if let Ok(msg) = rx.recv() {
-                        println!("Message received");
+                        room_data.history.write().unwrap().push(msg.clone());
+                        info!("Message received");
                         match msg {
                             Message::Text(txt) => {
                                 if let Ok(chat_msg) = serde_json::from_str::<ChatMessage>(&txt) {
                                     ChatRoom::send_msg_to_users(
-                                        &users, &chat_msg.from, Message::text(txt));
+                                        &room_data.users, &chat_msg.from,
+                                        Message::text(txt));
                                 }
                             },
                             Message::Close(frame) => (),
@@ -58,12 +67,12 @@ impl ChatRoom {
                             _ => ()
                         }
                     }
-                   println!("Message sent");
+                   info!("Message sent");
                 }
             });
     }
 
-    fn send_msg_to_users(users: &Arc<Mutex<HashMap<String, Sender<Message>>>>, excluded_user: &str, msg: Message) {
+    fn send_msg_to_users(users: &Mutex<HashMap<String, Sender<Message>>>, excluded_user: &str, msg: Message) {
         for (user, tx) in users.lock().unwrap().iter() {
             if !user.eq(&excluded_user) {
                tx.send(msg.clone());
@@ -80,7 +89,7 @@ impl ChatRoom {
             let (user_tx, user_rx) = mpsc::channel();
             let mut new_user = User::new(json.name);
             self.new_user_joined_msg(new_user.name());
-            self.users.lock().unwrap().insert(new_user.name(), user_tx);
+            self.data.users.lock().unwrap().insert(new_user.name(), user_tx);
             thread::spawn(move || {
                 new_user.run_user(ws, tx, user_rx);
             });
@@ -98,8 +107,8 @@ impl ChatRoom {
     }
 
     fn msg_all_users(&self, msg: Message) {
-        for u in self.users.lock().unwrap().iter() {
-            u.1.send(msg.clone());
+        for (_, user_tx) in self.data.users.lock().unwrap().iter() {
+            user_tx.send(msg.clone());
         }
     }
 }

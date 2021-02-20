@@ -8,6 +8,7 @@ use std::io::Write;
 use std::sync::{mpsc, Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::borrow::Cow;
+use log::info;
 
 const ROOM_LIMIT: usize = 10;
 const ROOM_LIMIT_AND_MGR: usize = ROOM_LIMIT+1;
@@ -34,14 +35,15 @@ impl ChatManager {
             let rooms_clone = self.rooms.clone();
             self.thread.lock().unwrap().execute(move || {
                 let conn = TcpListener::bind(server_addr).unwrap();
-                println!("Chat server is up and running... waiting for connections.");
+                info!("Chat server is up and running... waiting for connections.");
                 for new_stream in conn.incoming() {
                     let mut stream = new_stream.unwrap();
-                    let name = ChatManager::get_room_name(&mut stream);
-                    if let Some(found) = rooms_clone.lock().unwrap().get_mut(&name) {
-                        found.send(stream);
-                    } else {
-                        stream.write(b"HTTP/1.1 404 NOT FOUND");
+                    if let Some(name) = ChatManager::get_room_name(&mut stream) {
+                        if let Some(found) = rooms_clone.lock().unwrap().get_mut(&name) {
+                            found.send(stream);
+                        } else {
+                            stream.write(b"HTTP/1.1 404 NOT FOUND");
+                        }
                     }
                 }
             });
@@ -50,14 +52,14 @@ impl ChatManager {
     }
 
     //parse room name from raw HTTP headers
-    fn get_room_name(new_stream: &mut TcpStream) -> String {
+    fn get_room_name(new_stream: &mut TcpStream) -> Option<String> {
         let mut buff = [0; 1024];
         new_stream.peek(&mut buff);
         let incoming = String::from_utf8_lossy(&buff);
         if incoming.starts_with("GET /room/") {
-            ChatManager::extract_name(incoming)
+            Some(ChatManager::extract_name(incoming))
         } else {
-            String::new()
+            None
         }
     }
 
@@ -92,11 +94,9 @@ impl ChatManager {
         vec
     }
 
-
     pub fn too_many_rooms(&mut self) -> bool {
         self.rooms.lock().unwrap().len() >= ROOM_LIMIT
     }
-
 }
 
 #[derive(Debug)]
