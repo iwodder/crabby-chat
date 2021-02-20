@@ -9,7 +9,7 @@ use std::thread;
 
 pub struct ChatRoom {
     name: String,
-    users: Arc<Mutex<HashMap<String, Sender<Message>>>>
+    users: Arc<Mutex<HashMap<String, Sender<Message>>>>,
     history: Arc<RwLock<Vec<Message>>>
 }
 

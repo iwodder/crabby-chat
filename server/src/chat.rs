@@ -59,7 +59,7 @@ pub mod chat_routes {
         }
     }
 
-    #[get("/rooms")]
+    #[get("/")]
     pub fn get_rooms(cm: State<Mutex<ChatManager>>) -> Option<Json<ChatRooms>> {
         let rooms = cm.lock().unwrap().list_rooms();
         let mut res = ChatRooms {
