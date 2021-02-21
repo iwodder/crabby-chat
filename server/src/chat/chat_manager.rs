@@ -1,4 +1,4 @@
-use crate::chat::chat_room::ChatRoom;
+use crate::chat::chat_room::{ChatRoom, Extractor, ChatData};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::{TcpListener, SocketAddr, TcpStream};
@@ -14,7 +14,7 @@ const ROOM_LIMIT: usize = 10;
 const ROOM_LIMIT_AND_MGR: usize = ROOM_LIMIT+1;
 
 pub struct ChatManager {
-    rooms: Arc<Mutex<HashMap<String, Sender<TcpStream>>>>,
+    rooms: Arc<Mutex<HashMap<ChatData, Sender<TcpStream>>>>,
     started: AtomicBool,
     thread: Mutex<ThreadPool>
 }
@@ -39,11 +39,17 @@ impl ChatManager {
                 for new_stream in conn.incoming() {
                     let mut stream = new_stream.unwrap();
                     if let Some(name) = ChatManager::get_room_name(&mut stream) {
-                        if let Some(found) = rooms_clone.lock().unwrap().get_mut(&name) {
-                            found.send(stream);
-                        } else {
-                            stream.write(b"HTTP/1.1 404 NOT FOUND");
+                        for (room, tx) in rooms_clone.lock().unwrap().iter() {
+                            if room.name.eq(&name) {
+                                return tx.send(stream).unwrap();
+                            }
                         }
+                        stream.write(b"HTTP/1.1 404 NOT FOUND");
+                        // if let Some(found) = rooms_clone.lock().unwrap().g(&name) {
+                        //     found.send(stream);
+                        // } else {
+                        //     stream.write(b"HTTP/1.1 404 NOT FOUND");
+                        // }
                     }
                 }
             });
@@ -76,22 +82,29 @@ impl ChatManager {
             Err(Error::TooManyRooms(String::from("Room limit exceeded.")))
         } else {
             let (room, client_rx) = mpsc::channel();
-            self.rooms.lock().unwrap().insert(name.clone(), room);
+            let data = ChatData::new(name);
+            self.rooms.lock().unwrap().insert(data.clone(), room);
 
             self.thread.lock().unwrap().execute(move || {
-                let mut new_room = ChatRoom::new(name);
+                let mut new_room = ChatRoom::new(data);
                 new_room.run_room(client_rx);
             });
             Ok(())
         }
     }
 
-    pub fn list_rooms(&self) -> Vec<String>{
+    pub fn list_rooms(&self) -> Vec<String> {
         let mut vec = vec![];
         for room in self.rooms.lock().unwrap().keys() {
-            vec.push(String::from(room));
+            vec.push(room.name.clone());
         }
         vec
+    }
+
+    pub fn get_room_data<T: Extractor>(&self, extractor: &mut T) {
+        for (room, _) in self.rooms.lock().unwrap().iter() {
+            room.extract_room_data(extractor);
+        }
     }
 
     pub fn too_many_rooms(&mut self) -> bool {
@@ -116,5 +129,4 @@ mod test {
         let name = ChatManager::extract_name(s);
         assert_eq!("hello", name);
     }
-
 }
