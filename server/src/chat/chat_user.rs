@@ -28,7 +28,7 @@ impl User {
                     let result = ws.write_message(msg);
                     match result {
                         Ok(()) => (),
-                        Err(err) => {
+                        Err(_) => {
                             break;
                         }
                     }
@@ -41,7 +41,7 @@ impl User {
                     Ok(msg) => {
                         room.send(msg);
                     }
-                    Err(err) => {
+                    Err(_) => {
                         break;
                     }
                 }

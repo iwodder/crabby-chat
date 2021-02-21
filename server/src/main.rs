@@ -2,15 +2,13 @@
 #![feature(thread_spawn_unchecked)]
 
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Mutex;
 
 use rocket_contrib::serve::StaticFiles;
 
 use chat::chat_manager::ChatManager;
-use std::sync::Mutex;
-use log::info;
 
 mod routes;
-mod user;
 mod chat;
 
 
@@ -19,7 +17,6 @@ extern crate rocket;
 
 fn main() {
     log4rs::init_file("config/log4rs.yml", Default::default()).unwrap();
-    info!("it worked!");
 
     let mut cm = ChatManager::new();
     cm.run_manager(SocketAddr::new(IpAddr::from([127,0,0,1]), 8080));
