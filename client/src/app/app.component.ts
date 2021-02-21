@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { ChatService } from './chat.service';
+import { Message } from './message';
 
 @Component({
   selector: 'app-root',
@@ -13,12 +14,18 @@ export class AppComponent {
   authorText = '';
   authorName = '';
   roomName = '';
+  joined = false;
 
   constructor(chatService: ChatService) { this.chatService = chatService; }
 
   public sendMessage(): void {
-    this.chatService.sendMessage(this.authorName, this.authorText);
-    this.authorText = '';
+    if (this.authorText !== ''){
+      this.chatService.sendMessage({msg: this.authorText, from: this.authorName});
+      this.authorText = '';
+    }
+    else{
+      console.log('You should say something...');
+    }
   }
 
   public createChatRoom(): void{
@@ -28,5 +35,9 @@ export class AppComponent {
 
   public setChatRoom(): void{
     this.chatService.setSocket('');
+  }
+
+  public joinChatRoom(){
+    this.chatService.joinChatRoom({name: this.authorName})
   }
 }

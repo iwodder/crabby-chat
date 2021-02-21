@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import { from } from 'rxjs';
+import { Message } from './message';
+import { User } from './user';
 
 @Injectable({
   providedIn: 'root'
@@ -17,9 +19,14 @@ export class ChatService {
   //  this.sendMessage('TheUser', 'I\'m here!');
   }
 
-  public sendMessage(name: string, message: string): void {
-    console.log('Send message: ' + message);
-    this.socket?.send(message);
+  public sendMessage(msg: Message): void {
+    console.log('Send message: ' + msg.msg + ' From: ' + msg.from);
+    try{
+      this.socket?.send(JSON.stringify(msg));
+    }
+    catch(e){
+      console.log('error');
+    }
   }
 
   public createChatRoom(room: string): void{
@@ -43,9 +50,13 @@ export class ChatService {
     const newLocal = 'Use new room: ';
     console.log(newLocal + room);
     this.socket = new WebSocket(this.chatUrl + room);
-    this.socket.onmessage = (msg => {
-      console.log('Received message' + msg.data);
-    });
+    this.socket.onerror = (e => console.log(e));
+    this.socket.onmessage = (msg => console.log('Received message' + msg.data));
+  }
+
+  public joinChatRoom(user: User): void{
+    console.log(user.name + ' has joined the room');
+    this.socket?.send(JSON.stringify(user));
   }
 }
 
