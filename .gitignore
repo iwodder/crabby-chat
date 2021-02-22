@@ -3,6 +3,10 @@
 # content copied in docker build
 server/static
 
+# log directory
+log/
+*.log
+
 # compiled output
 client/dist/
 client/tmp/

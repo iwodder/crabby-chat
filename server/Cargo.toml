@@ -8,8 +8,16 @@ edition = "2018"
 
 [dependencies]
 rocket = "0.4.6"
+tungstenite = "0.13.0"
+serde_json = "1.0.62"
+serde = { version = "1.0.62", features = ["derive"]}
+threadpool = "1.8.1"
+chrono = "0.4"
+log = "0.4"
+log4rs = "1.0.0"
+
 
 [dependencies.rocket_contrib]
 version = "0.4.6"
 default-features = false
-features = ["serve"]
+features = ["serve", "json"]
