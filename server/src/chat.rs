@@ -37,6 +37,12 @@ pub mod chat_data {
         pub from: String,
         pub msg: String
     }
+
+    #[derive(Serialize,Deserialize, Debug)]
+    pub struct RoomAvailable {
+        pub name: String,
+        pub available: bool
+    }
 }
 
 pub mod chat_routes {
@@ -44,19 +50,21 @@ pub mod chat_routes {
     use rocket::State;
     use rocket_contrib::json::Json;
 
-    use crate::chat::chat_data::{ChatRoom, ChatRooms, RoomCreated};
-    use crate::chat::chat_manager::ChatManager;
+    use crate::chat::chat_data::{ChatRoom, ChatRooms, RoomCreated, RoomAvailable};
+    use crate::chat::chat_manager::{ChatManager, Error};
 
     #[post("/<name>")]
-    pub fn create_room(cm: State<Mutex<ChatManager>>, name: String) -> Option<Json<RoomCreated>> {
+    pub fn create_room(cm: State<Mutex<ChatManager>>, name: String) -> Result<Json<RoomCreated>, Error> {
         let result = cm.lock().unwrap().create_new_room(name.clone());
-        if let Ok(_) = result {
-            Some(Json(
-                RoomCreated {
-                    path: name
-                }))
-        } else {
-            None
+        match result {
+            Ok(_) => {
+                Ok(Json(RoomCreated {
+                        path: name
+                    }))
+            },
+            Err(err) => {
+                Err(err)
+            }
         }
     }
 
@@ -72,6 +80,27 @@ pub mod chat_routes {
           });
         }
         Some(Json(res))
+    }
+
+    #[get("/available?<names>")]
+    pub fn check_name(cm: State<Mutex<ChatManager>>, names: String) -> Json<Vec<RoomAvailable>> {
+        let values:Vec<String> = names.split(",").map(|s|{String::from(s)}).collect();
+        let chat_mgr = cm.lock().unwrap();
+        let mut response:Vec<RoomAvailable> = vec![];
+        for v in values {
+            if chat_mgr.name_is_available(&v) {
+                response.push(RoomAvailable{
+                    name:v,
+                    available: true
+                });
+            } else {
+                response.push(RoomAvailable {
+                    name: v,
+                    available: false
+                })
+            }
+        }
+        Json(response)
     }
 }
 
