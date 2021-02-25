@@ -1,14 +1,16 @@
 use crate::chat::chat_room::{ChatRoom, Extractor, ChatData};
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::net::{TcpListener, SocketAddr, TcpStream};
 use threadpool::ThreadPool;
 use std::sync::mpsc::Sender;
-use std::io::Write;
+use std::io::{Write};
 use std::sync::{mpsc, Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::borrow::Cow;
 use log::info;
+use crate::chat::chat_manager::Error::{TooManyRooms};
+use std::fmt;
 
 const ROOM_LIMIT: usize = 10;
 const ROOM_LIMIT_AND_MGR: usize = ROOM_LIMIT+1;
@@ -79,7 +81,15 @@ impl ChatManager {
 
     pub fn create_new_room(&mut self, name: String) -> Result<(), Error> {
         if self.too_many_rooms() {
-            Err(Error::TooManyRooms(String::from("Room limit exceeded.")))
+           Err(Error::TooManyRooms)
+        } else {
+            self.create_room(name)
+        }
+    }
+
+    fn create_room(&mut self, name: String) -> Result<(), Error> {
+        if self.name_is_unavailable(&name) {
+            Err(Error::NameTaken)
         } else {
             let (room, client_rx) = mpsc::channel();
             let data = ChatData::new(name);
@@ -91,6 +101,18 @@ impl ChatManager {
             });
             Ok(())
         }
+    }
+
+    fn name_is_unavailable(&mut self, name: &String) -> bool {
+        self.rooms.lock().unwrap().keys().any(|data| {
+            data.name.to_lowercase() == name.to_lowercase()
+        })
+    }
+
+    pub fn name_is_available(&self, name: &String) -> bool {
+        !self.rooms.lock().unwrap().keys().any(|room|{
+            room.name.to_lowercase() == name.to_lowercase()
+        })
     }
 
     pub fn list_rooms(&self) -> Vec<String> {
@@ -112,15 +134,28 @@ impl ChatManager {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Error {
-    TooManyRooms(String),
-    RoomNotFound(String)
+    TooManyRooms,
+    RoomNotFound,
+    NameTaken
+}
+
+impl std::error::Error for Error{}
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match *self {
+            Error::TooManyRooms => write!(f, "Too many rooms running"),
+            Error::RoomNotFound => write!(f, "Room doesn't exist"),
+            Error::NameTaken => write!(f, "Name is already in use"),
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::chat::chat_manager::ChatManager;
+    use crate::chat::chat_manager::Error;
 
 
     #[test]
@@ -128,5 +163,47 @@ mod test {
         let s = String::from_utf8_lossy(b"GET /room/hello HTTP/1.1\nHost: 127.0.0.1:8080");
         let name = ChatManager::extract_name(s);
         assert_eq!("hello", name);
+    }
+
+    #[test]
+    fn can_create_up_to_ten_chat_rooms() {
+        let mut cm = ChatManager::new();
+        for idx in 0..10 {
+            cm.create_new_room(format!("Room #{}", idx));
+        }
+
+        assert_eq!(10, cm.list_rooms().len())
+    }
+
+    #[test]
+    fn creating_more_than_ten_rooms_causes_error() {
+        let mut cm = ChatManager::new();
+        for idx in 0..10 {
+            cm.create_new_room(format!("Room #{}", idx));
+        }
+        let r = cm.create_new_room(format!("unable to create!"));
+
+        assert!(r.is_err());
+        assert_eq!(Error::TooManyRooms, r.err().unwrap());
+    }
+
+    #[test]
+    fn cannot_use_room_name_twice() {
+        let mut cm = ChatManager::new();
+        let one = cm.create_new_room(String::from("Room"));
+        let two = cm.create_new_room(String::from("Room"));
+
+        assert!(one.is_ok());
+        assert!(two.is_err());
+        assert_eq!(Error::NameTaken, two.err().unwrap());
+    }
+
+    #[test]
+    fn unused_room_name_is_available() {
+        let mut cm = ChatManager::new();
+        cm.create_new_room(String::from("Room 1"));
+        cm.create_new_room(String::from("Room 2"));
+
+        assert!(cm.name_is_available(&String::from("Room 3")));
     }
 }

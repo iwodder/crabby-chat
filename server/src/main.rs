@@ -24,7 +24,8 @@ fn main() {
     rocket::ignite()
         .manage(Mutex::new(cm))
         .mount("/api", routes![routes::test_routes::hello])
-        .mount("/room", routes![chat::chat_routes::create_room, chat::chat_routes::get_rooms])
+        .mount("/room", routes![
+        chat::chat_routes::create_room, chat::chat_routes::get_rooms, chat::chat_routes::check_name])
         .mount("/", StaticFiles::from("static"))
         .launch();
 }
