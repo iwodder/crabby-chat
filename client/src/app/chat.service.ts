@@ -1,5 +1,6 @@
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { from } from 'rxjs';
+import { map } from "rxjs/operators";
 import { Message } from './message';
 import { User } from './user';
 
@@ -9,14 +10,13 @@ import { User } from './user';
 
 export class ChatService {
   private socket: WebSocket | undefined;
-  private chatUrl = 'ws://localhost:8080/room/';
-  private postUrl = 'http://localhost:8000/room/';
   private defaultRoom = 'defaultroom';
+  private chatUrl = 'ws://localhost:8080/room/';
+  private headers = new HttpHeaders().set('Content-Type', 'application/json');
 
-  constructor() {
+  constructor(private http: HttpClient) {
     this.createChatRoom(this.defaultRoom);
-    this.setSocket(this.chatUrl + this.defaultRoom);
-  //  this.sendMessage('TheUser', 'I\'m here!');
+    this.setSocket(this.defaultRoom);
   }
 
   public sendMessage(msg: Message): void {
@@ -29,26 +29,34 @@ export class ChatService {
     }
   }
 
-  public createChatRoom(room: string): void{
-    console.log('Create new room: ' + this.postUrl + room);
-    const test =  from(
-      fetch(
-        this.postUrl + room, // the url you are trying to access
-        {
-          headers: {
-            'Content-Type': 'text/plain',
-          },
-          method: 'Post', // GET, POST, PUT, DELETE
-          mode: 'no-cors' // the most important option
-        }
-      )).subscribe(data => {
-        console.log(data);
-    });
+  public async createChatRoom(room: string){
+    try{
+      let available = await this.isRoomAvailable(room);
+      console.log(available);
+      if(available){
+        console.log("Create new room: " + room);
+        let result = this.http.post('room/' + room, { headers: this.headers})
+        .subscribe( resp => {console.log('Create room: ' + room)});
+      }
+    }
+    catch(e){
+      console.log(e);
+    }
+  }
+
+  private async isRoomAvailable(room:string){
+    console.log('Check whether room exists');
+    let available = false;;
+    let result =  await this.http.get('room/available?names=' + room, { headers: this.headers}).toPromise().then((data: any) => {
+      console.log(data[0]['available']);
+      available = data[0]['available'];
+    })
+    console.log('Is this room available: ' + available);
+    return available;
+
   }
 
   public setSocket(room: string): void{
-    const newLocal = 'Use new room: ';
-    console.log(newLocal + room);
     this.socket = new WebSocket(this.chatUrl + room);
     this.socket.onerror = (e => console.log(e));
     this.socket.onmessage = (msg => console.log('Received message' + msg.data));
