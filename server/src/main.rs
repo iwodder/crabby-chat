@@ -10,6 +10,7 @@ use chat::chat_manager::ChatManager;
 
 mod routes;
 mod chat;
+mod user;
 
 
 #[macro_use]
@@ -19,13 +20,14 @@ fn main() {
     log4rs::init_file("config/log4rs.yml", Default::default()).unwrap();
 
     let mut cm = ChatManager::new();
-    cm.run_manager(SocketAddr::new(IpAddr::from([127,0,0,1]), 8080));
+    cm.run(SocketAddr::new(IpAddr::from([127,0,0,1]), 8080));
 
     rocket::ignite()
         .manage(Mutex::new(cm))
         .mount("/api", routes![routes::test_routes::hello])
         .mount("/room", routes![
-        chat::chat_routes::create_room, chat::chat_routes::get_rooms, chat::chat_routes::check_name])
+        chat::chat_routes::create_room, chat::chat_routes::get_rooms, chat::chat_routes::check_name,
+        chat::chat_routes::delete_room])
         .mount("/", StaticFiles::from("static"))
         .launch();
 }
