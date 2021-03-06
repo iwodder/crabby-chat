@@ -16,6 +16,7 @@ chrono = "0.4"
 log = "0.4"
 log4rs = "1.0.0"
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
+rusqlite = { version = "0.24.2", features = ["bundled"] }
 
 
 [dependencies.rocket_contrib]
