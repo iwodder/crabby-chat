@@ -1,30 +1,35 @@
-<label >Your Name:</label> 
-<input [(ngModel)]="authorName" />
-<button (click)="joinChatRoom()">Join</button>
-<br/>
-<br/>
-<label>Messages</label>
-<div *ngFor="let message of messageList" class="chatDiv">
-  {{message}}
-</div>
-<br/>
-<br/>
+ <div class="mat-app-background expandContainer">
+  <h1 class="mat-display-3 titletext">CrabbyChat</h1>
+      <mat-drawer-container class="maincontainer expandContainer">
+        <mat-drawer-content  class="paddingStyle">      
+          <mat-nav-list class="mat-messagelist fullWidth">
+            <a *ngFor="let message of messageList" class="chatDiv"></a>
+          </mat-nav-list>
+          <mat-form-field class="fullWidth">
+            <textarea class="textareastyle"  matInput matNativeControl [(ngModel)]="authorText" (keyup.enter)="sendMessage()" ></textarea>
+            <button class="mat-raised-button"(click)="sendMessage()">Send</button>
+          </mat-form-field>
+        </mat-drawer-content>
+        <mat-drawer #sideNav mode="side" opened="true" position="end" class="paddingStyle mat-sidenav">
+          <mat-form-field class="paddingStyle">
+            <label>Create A New Chatroom:</label> 
+            <input class=inputareastyle  matInput matNativeControl [(ngModel)]="roomName" (keyup.enter)="createChatRoom()" />
+            <button class="mat-raised-button" click="createChatRoom()">Create</button>
+          </mat-form-field>
+          <mat-form-field class="paddingStyle">
+            <label>Select a chatroom: </label>
+            <mat-select  class=inputareastyle ></mat-select>
+            <button class="mat-raised-button">Join</button>
+          </mat-form-field>
+        </mat-drawer>
+      </mat-drawer-container>
+      <br/>
+      <br/>
 
-<label >Message:</label> 
-<input [(ngModel)]="authorText" (keyup.enter)="sendMessage()" />
-<button (click)="sendMessage()">Send</button>
-<br/>
-<br/>
-<br/>
-<br/>
-
-<!--
-<label >Select A Chatroom:                  </label> 
-<div *ngFor="let chatroom of chatRoomList">
-  {{chatroom}}
-</div>>
--->
-
-<label >Create A New Chatroom:</label> 
-<input [(ngModel)]="roomName" (keyup.enter)="createChatRoom()" />
-<button (click)="createChatRoom()">Create</button>
+      <!--
+      <label >Select A Chatroom:                  </label> 
+      <div *ngFor="let chatroom of chatRoomList">
+        {{chatroom}}
+      </div>>
+      -->
+ </div>

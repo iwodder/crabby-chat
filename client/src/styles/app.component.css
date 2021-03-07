@@ -1,0 +1,47 @@
+ .maincontainer {
+  margin: 10px;
+  border: 2px solid #555;
+}
+
+.expandContainer{
+  height: 100%;
+  width: 100%;
+}
+
+.paddingStyle{
+  padding: 10px;
+}
+
+.mat-sidenav {
+  width: 250px;
+}
+
+.mat-messagelist{
+  height: 600px;
+  border: 2px solid #555;
+  background-color: white;
+}
+
+.textareastyle{
+  height: 75px;
+  border: 2px solid #555;
+  margin-bottom: 10px;
+}
+
+.inputareastyle{
+  border: 2px solid #555;
+  height: 25px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.fullWidth{
+  width: 100%;
+}
+
+.titletext{
+  height: 55px;
+  margin: 0px;
+  padding: 10px;
+}
+

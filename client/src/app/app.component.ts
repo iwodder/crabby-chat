@@ -1,26 +1,27 @@
-import { Component } from '@angular/core';
-import { ChatService } from './chat.service';
-import { Message } from './message';
+import { Component, Inject, OnInit } from '@angular/core';
+import { ChatService } from '../services/chat.service';
+import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
+import { LoginDialogComponent } from './logindialog.component';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css'],
+  styleUrls: ['../styles/app.component.css', '../styles/app.component.scss'],
 })
 export class AppComponent {
-  private chatService: ChatService;
   messageList: string[] = [];
   chatRoomList: string[] = [];
   authorText = '';
-  authorName = '';
   roomName = '';
   joined = false;
-
-  constructor(chatService: ChatService) { this.chatService = chatService; }
+  title = "Example Angular 10 Material Dialog";
+  isDarkTheme: boolean | undefined;
+  
+  constructor(private cs: ChatService, private matDialog: MatDialog) {this.openDialog(); this.isDarkTheme = true}
 
   public sendMessage(): void {
     if (this.authorText !== ''){
-      this.chatService.sendMessage({msg: this.authorText, from: this.authorName});
+      this.cs.sendMessage( this.authorText);
       this.authorText = '';
     }
     else{
@@ -29,15 +30,15 @@ export class AppComponent {
   }
 
   public createChatRoom(): void{
-    this.chatService.createChatRoom(this.roomName);
+    this.cs.createChatRoom(this.roomName);
     this.chatRoomList.push(this.roomName);
   }
 
   public setChatRoom(): void{
-    this.chatService.setSocket('');
+   // this.chatService.setSocket('');
   }
 
-  public joinChatRoom(){
-    this.chatService.joinChatRoom({name: this.authorName})
+  openDialog() {
+    this.matDialog.open(LoginDialogComponent, { disableClose: true });
   }
 }

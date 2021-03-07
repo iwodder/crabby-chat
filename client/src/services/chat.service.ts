@@ -1,28 +1,28 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { map } from "rxjs/operators";
-import { Message } from './message';
-import { User } from './user';
+import { Message } from '../objects/message';
+import { User } from '../objects/user';
+import { WebSocketService } from './websocket.service';
 
 @Injectable({
   providedIn: 'root'
 })
 
 export class ChatService {
-  private socket: WebSocket | undefined;
+ // private socket: WebSocket | undefined;
   private defaultRoom = 'defaultroom';
   private chatUrl = 'ws://localhost:8080/room/';
+  private user = '';
   private headers = new HttpHeaders().set('Content-Type', 'application/json');
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private ws: WebSocketService) {
     this.createChatRoom(this.defaultRoom);
-    this.setSocket(this.defaultRoom);
   }
 
-  public sendMessage(msg: Message): void {
-    console.log('Send message: ' + msg.msg + ' From: ' + msg.from);
+  public sendMessage(text: string): void {
     try{
-      this.socket?.send(JSON.stringify(msg));
+      this.ws.sendMessage({msg : text, from: this.user});
     }
     catch(e){
       console.log('error');
@@ -32,7 +32,6 @@ export class ChatService {
   public async createChatRoom(room: string){
     try{
       let available = await this.isRoomAvailable(room);
-      console.log(available);
       if(available){
         console.log("Create new room: " + room);
         let result = this.http.post('room/' + room, { headers: this.headers})
@@ -42,13 +41,13 @@ export class ChatService {
     catch(e){
       console.log(e);
     }
+    this.ws.connect(this.chatUrl + room);
   }
 
   private async isRoomAvailable(room:string){
     console.log('Check whether room exists');
     let available = false;;
     let result =  await this.http.get('room/available?names=' + room, { headers: this.headers}).toPromise().then((data: any) => {
-      console.log(data[0]['available']);
       available = data[0]['available'];
     })
     console.log('Is this room available: ' + available);
@@ -56,15 +55,10 @@ export class ChatService {
 
   }
 
-  public setSocket(room: string): void{
-    this.socket = new WebSocket(this.chatUrl + room);
-    this.socket.onerror = (e => console.log(e));
-    this.socket.onmessage = (msg => console.log('Received message' + msg.data));
-  }
-
   public joinChatRoom(user: User): void{
     console.log(user.name + ' has joined the room');
-    this.socket?.send(JSON.stringify(user));
+    this.user = user.name;
+    this.ws.sendMessage(user);
   }
 }
 
