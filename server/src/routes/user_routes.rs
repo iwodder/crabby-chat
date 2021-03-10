@@ -1,7 +1,7 @@
 use rocket::request::Form;
 use rocket::State;
 use crate::user::user_db_service::UserDbService;
-use crate::user::{User, NewUserForm};
+use crate::user::{User, NewUserForm, IUser};
 use std::sync::Mutex;
 
 use std::error::Error;
@@ -13,8 +13,8 @@ use rocket::http::Status;
 pub fn register(db: State<Mutex<UserDbService>>, new_user: Form<NewUserForm>) -> Result<Json<User>, Box<dyn Error>> {
     let user = new_user.into_inner();
     let u = User::from_form(user);
-    let r = db.lock().unwrap().create_user(u)?;
-    Ok(Json(r))
+    let r = db.lock().unwrap().create_user(Box::new(u))?;
+    Ok(Json(r.to_user()))
 }
 
 #[post("/<user_id>/favorite", data = "<favorite>")]
@@ -25,11 +25,11 @@ pub fn add_favorite(db: State<Mutex<UserDbService>>, user_id: String, favorite: 
         user_name: String::new(),
         favorite_rooms: HashSet::new()
     };
-    let r = service.retrieve_user(user).unwrap();
-    if let Some(mut found) = r {
+    let r = service.retrieve_user(Box::new(user));
+    if let Ok(mut found) = r {
         found.add_favorites(vec![favorite]);
-        service.update_user_favorites(&mut found).unwrap();
-        Ok(Json(found))
+        service.update_user_favorites(found.as_mut()).unwrap();
+        Ok(Json(found.to_user()))
     } else {
         Err(Status::NotFound)
     }

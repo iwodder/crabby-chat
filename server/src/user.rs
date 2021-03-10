@@ -1,10 +1,10 @@
 pub mod user_db_service;
-mod user_types;
 use uuid::Uuid;
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::collections::hash_set;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_set::Iter;
 
 #[derive(FromForm)]
 pub struct NewUserForm {
@@ -14,9 +14,30 @@ pub struct NewUserForm {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
-    pub(crate) user_id: Option<String>,
-    pub(crate) user_name: String,
-    pub(crate) favorite_rooms: HashSet<String>
+    pub user_id: Option<String>,
+    pub user_name: String,
+    pub favorite_rooms: HashSet<String>
+}
+
+pub trait IUser {
+
+    fn user_id(&self) -> Option<&String>;
+
+    fn set_user_id(&mut self, id: String);
+
+    fn user_name(&self) -> &String;
+
+    fn set_user_name(&mut self, name: String);
+
+    fn total_favorites(&self) -> usize;
+
+    fn add_favorites(&mut self, favs: Vec<String>);
+
+    fn favorites(&self) -> hash_set::Iter<String>;
+
+    fn to_user(&self) -> User;
+
+    fn to_iuser(&self) -> Box<dyn IUser>;
 }
 
 impl User {
@@ -35,37 +56,106 @@ impl User {
             favorite_rooms: HashSet::new()
         }
     }
+}
 
-    pub fn user_id(&self) -> Option<&String> {
+#[derive(Clone, Debug)]
+struct NullUser{
+    user_id: Option<String>,
+    user_name: String,
+    favorite_rooms: HashSet<String>
+}
+
+impl NullUser {
+    pub fn new() -> Self {
+        NullUser {
+            user_id: None,
+            user_name: String::new(),
+            favorite_rooms: HashSet::new()
+        }
+    }
+}
+
+impl IUser for NullUser {
+    fn user_id(&self) -> Option<&String> {
         self.user_id.as_ref()
     }
 
-    pub fn set_user_id(&mut self, id: String) {
-        self.user_id.replace(id);
+    fn set_user_id(&mut self, id: String) {
+        //
     }
 
-    pub fn user_name(&self) -> &String {
+    fn user_name(&self) -> &String {
         &self.user_name
     }
 
-    pub fn set_user_name(&mut self, name: String) {
-        self.user_name = name;
+    fn set_user_name(&mut self, name: String) {
+        //
     }
 
-    pub fn total_favorites(&self) -> usize {
-        self.favorite_rooms.len()
+    fn total_favorites(&self) -> usize {
+        0
     }
 
-    pub fn add_favorites(&mut self, mut favs: Vec<String>) {
-        while let Some(s) = favs.pop() {
-            self.favorite_rooms.insert(s);
-        }
+    fn add_favorites(&mut self, favs: Vec<String>) {
+        //
     }
 
-    pub fn favorites(&self) -> hash_set::Iter<String> {
+    fn favorites(&self) -> Iter<String> {
         self.favorite_rooms.iter()
     }
 
+    fn to_user(&self) -> User {
+        User {
+            user_id: None,
+            user_name: String::from(""),
+            favorite_rooms: HashSet::new()
+        }
+    }
+
+    fn to_iuser(&self) -> Box<dyn IUser> {
+        Box::new(self.clone())
+    }
+}
+
+impl IUser for User {
+
+    fn user_id(&self) -> Option<&String> {
+        self.user_id.as_ref()
+    }
+
+    fn set_user_id(&mut self, id: String) {
+        self.user_id.replace(id);
+    }
+
+    fn user_name(&self) -> &String {
+        &self.user_name
+    }
+
+    fn set_user_name(&mut self, name: String) {
+        self.user_name = name;
+    }
+
+    fn total_favorites(&self) -> usize {
+        self.favorite_rooms.len()
+    }
+
+    fn add_favorites(&mut self, favs: Vec<String>) {
+        for fav in favs.iter() {
+            self.favorite_rooms.insert(fav.clone());
+        }
+    }
+
+    fn favorites(&self) -> hash_set::Iter<String> {
+        self.favorite_rooms.iter()
+    }
+
+    fn to_user(&self) -> User {
+        self.clone()
+    }
+
+    fn to_iuser(&self) -> Box<dyn IUser> {
+        Box::new(self.clone())
+    }
 }
 
 impl PartialEq for User {
@@ -82,7 +172,7 @@ impl PartialEq for User {
 
 #[cfg(test)]
 mod tests {
-    use crate::user::User;
+    use crate::user::{IUser, User};
     use uuid::Uuid;
 
     #[test]

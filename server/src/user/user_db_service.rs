@@ -1,5 +1,6 @@
+mod db_command;
 use rusqlite::{Connection, params, Error};
-use crate::user::User;
+use crate::user::{IUser, User};
 use uuid::Uuid;
 use std::collections::HashSet;
 use std::fs::File;
@@ -8,6 +9,7 @@ use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 use crate::user::user_db_service::DbServiceError::EmptyFile;
+use crate::user::user_db_service::db_command::{CreateUser, DbCommand, GetUser, UpdateUser};
 
 pub struct UserDbService {
     conn: Connection
@@ -43,44 +45,30 @@ impl UserDbService {
         }
     }
 
-    pub fn create_user(&self, mut new_user: User) -> Result<User, Error> {
+    pub fn create_user(&self, mut new_user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
         new_user.set_user_id(Uuid::new_v4().to_string());
-        let mut create_stmt = self.conn.prepare("INSERT INTO users (user_id, user_name) VALUES(?1, ?2)")?;
-        let id = new_user.user_id().unwrap();
-        let user_name = new_user.user_name();
-        match create_stmt.execute(params![id, user_name]) {
-            Ok(_) => Ok(new_user),
-            Err(e) => Err(e)
-        }
+        CreateUser::new(new_user).execute(&self.conn)
     }
 
-    pub fn retrieve_user(&self, mut user: User) -> Result<Option<User>, Error> {
-        let mut retrieve_stmt = self.conn.prepare("SELECT * FROM users WHERE user_id=?1")?;
-        let mut row = retrieve_stmt.query(params![user.user_id().unwrap()])?;
-        if let Some(user_row) = row.next()? {
-            Ok(Some(User {
-                user_id: user_row.get("user_id").unwrap(),
-                user_name: user_row.get("user_name").unwrap(),
-                favorite_rooms: HashSet::new()
-            }))
-        } else {
-            Ok(None)
-        }
+    pub fn retrieve_user(&self, mut user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
+        let user_id = match user.user_id() {
+            Some(id) => id.clone(),
+            None => String::new()
+        };
+        GetUser::new(user_id).execute(&self.conn)
     }
 
-    pub fn delete_user(&self, mut user: User) -> Result<(), Error> {
+    pub fn delete_user(&self, mut user: Box<dyn IUser>) -> Result<(), Error> {
         let mut delete_stmt = self.conn.prepare("DELETE FROM users WHERE user_id=?1 AND user_name=?2")?;
         delete_stmt.execute(params![user.user_id().unwrap(), user.user_name()])?;
         Ok(())
     }
 
-    pub fn update_user(&self, user: &User) -> Result<(), Error> {
-        let mut update_stmt = self.conn.prepare("UPDATE users SET user_name=?1 WHERE user_id=?2")?;
-        update_stmt.execute(params![user.user_name(), user.user_id().unwrap()]);
-        Ok(())
+    pub fn update_user(&self, user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
+        UpdateUser::new(user).execute(&self.conn)
     }
 
-    pub fn get_user_favorites(&self, mut user: User) -> Result<User, Error> {
+    pub fn get_user_favorites(&self, mut user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
         let mut get_favs = self.conn.prepare("SELECT name FROM favorites WHERE user_id=?1")?;
         let mut user_favs:Vec<String> = vec![];
         let mut rows = get_favs.query(params![user.user_id().unwrap()])?;
@@ -91,7 +79,7 @@ impl UserDbService {
         Ok(user)
     }
 
-    pub fn update_user_favorites(&self, user: &mut User) -> Result<(), Error> {
+    pub fn update_user_favorites(&self, user: &mut dyn IUser) -> Result<(), Error> {
         let mut update_favs = self.conn.prepare("INSERT INTO favorites (user_id, name) VALUES (?1, ?2)")?;
         let id = user.user_id().unwrap();
         for f in user.favorites() {
@@ -118,14 +106,14 @@ impl Display for DbServiceError {
 #[cfg(test)]
 mod tests {
     use crate::user::user_db_service::UserDbService;
-    use crate::user::User;
+    use crate::user::{User, IUser};
     use std::path::Path;
     use std::collections::HashSet;
 
     fn setup() -> (UserDbService, User) {
         let mut db_service = UserDbService::new();
         let mut new_user = User::new(String::from("jhalpert"));
-        new_user = db_service.create_user(new_user).unwrap();
+        new_user = db_service.create_user(Box::new(new_user)).unwrap().to_user();
         (db_service, new_user)
     }
 
@@ -140,13 +128,12 @@ mod tests {
         let result = UserDbService::from_file(file);
         assert!(result.is_ok());
         let service = result.unwrap();
-        let retrieved_user = service.retrieve_user(User {
+        let retrieved_user = service.retrieve_user(Box::new(User {
            user_id: Some(String::from("abcd-1234")),
             user_name: String::from("jhalpert"),
             favorite_rooms: HashSet::new()
-        });
+        }));
         assert!(retrieved_user.is_ok());
-        assert!(retrieved_user.unwrap().is_some());
     }
 
     #[test]
@@ -158,14 +145,14 @@ mod tests {
     #[test]
     fn created_user_is_retrievable() {
         let (db_service, new_user) = setup();
-        let retrieved_user = db_service.retrieve_user(new_user.clone());
-        assert_eq!(new_user, retrieved_user.unwrap().unwrap());
+        let retrieved_user = db_service.retrieve_user(Box::new(new_user.clone()));
+        assert_eq!(new_user, retrieved_user.unwrap().to_user());
     }
 
     #[test]
     fn can_delete_a_user() {
         let (db_service, new_user) = setup();
-        let result = db_service.delete_user(new_user);
+        let result = db_service.delete_user(Box::new(new_user));
         assert!(result.is_ok());
     }
 
@@ -173,18 +160,18 @@ mod tests {
     fn can_update_a_user() {
         let (db_service, mut new_user) = setup();
         new_user.set_user_name(String::from("mscott"));
-        db_service.update_user(&new_user);
+        let updated_user = db_service.update_user(Box::new(new_user.clone())).unwrap();
 
 
         let retrieved_user = db_service.retrieve_user(
-            new_user.clone()).unwrap().unwrap();
-        assert_eq!(new_user, retrieved_user);
+            Box::new(new_user.clone())).unwrap();
+        assert_eq!(updated_user.to_user(), retrieved_user.to_user());
     }
 
     #[test]
     fn new_user_has_zero_favorites() {
         let (db_service, mut new_user) = setup();
-        new_user = db_service.get_user_favorites(new_user).unwrap();
+        new_user = db_service.get_user_favorites(Box::new(new_user)).unwrap().to_user();
         assert_eq!(0, new_user.total_favorites());
     }
 
@@ -194,7 +181,17 @@ mod tests {
         new_user.add_favorites(vec![String::from("chili"), String::from("gambling"),
                  String::from("foot-bath")]);
         db_service.update_user_favorites(&mut new_user);
-        new_user = db_service.get_user_favorites(new_user).unwrap();
+        new_user = db_service.get_user_favorites(Box::new(new_user)).unwrap().to_user();
         assert_eq!(3, new_user.total_favorites());
+    }
+
+    #[test]
+    fn non_existent_user_returns_null_user() {
+        let user = Box::new(User::new(String::from("jhalpert")));
+        let db_service = UserDbService::new();
+        let found = db_service.retrieve_user(user);
+        assert!(found.is_ok());
+        let found_user = found.unwrap();
+        assert!(found_user.user_id().is_none())
     }
 }
