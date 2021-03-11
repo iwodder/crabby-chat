@@ -1,7 +1,7 @@
 import { webSocket, WebSocketSubject} from 'rxjs/webSocket';
-import { catchError, tap, switchAll } from 'rxjs/operators';
 import { Injectable} from '@angular/core';
-import { EMPTY, Subject } from 'rxjs';
+import { of, Subject } from 'rxjs';
+import { NULL_EXPR } from '@angular/compiler/src/output/output_ast';
 
 @Injectable({
     providedIn: 'root'
@@ -9,18 +9,13 @@ import { EMPTY, Subject } from 'rxjs';
 
   
 export class WebSocketService {
-    private socket: WebSocketSubject<any> | undefined;
-    private messagesSubject$ = new Subject();
+    private socket!: WebSocketSubject<any> | null;
     
-    public connect(chat: string): void {
-    
+    public connect(chat: string): WebSocketSubject<any> | null{    
       if (!this.socket || this.socket.closed) {
-        this.socket = this.getNewWebSocket(chat);
-        this.socket.subscribe(
-            (msg) => console.log('message received: ' + msg),
-            () => console.log('complete')
-          );
+        return this.getNewWebSocket(chat);
       }
+      return null;
     }
     
     private getNewWebSocket(chat: string) {

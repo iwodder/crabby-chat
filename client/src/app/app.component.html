@@ -1,25 +1,33 @@
  <div class="mat-app-background expandContainer">
   <h1 class="mat-display-3 titletext">CrabbyChat</h1>
       <mat-drawer-container class="maincontainer expandContainer">
-        <mat-drawer-content  class="paddingStyle">      
-          <mat-nav-list class="mat-messagelist fullWidth">
-            <a *ngFor="let message of messageList" class="chatDiv"></a>
-          </mat-nav-list>
+        <mat-drawer-content  class="paddingStyle">  
+          <label [value]="chatroomSelect">Current Room: {{chatroomSelect}}</label>  <br/> <br/>
+          <div class="mat-messagelist fullWidth">
+            <mat-list>
+              <mat-list-item class=list *ngFor="let message of messageList">
+                <label  style="height: 30px;">{{message.from}} : {{message.msg}}</label>
+              </mat-list-item>  
+            </mat-list>
+          </div>    
           <mat-form-field class="fullWidth">
             <textarea class="textareastyle"  matInput matNativeControl [(ngModel)]="authorText" (keyup.enter)="sendMessage()" ></textarea>
-            <button class="mat-raised-button"(click)="sendMessage()">Send</button>
+            <button class="mat-raised-button" (click)="sendMessage()">Send</button>
           </mat-form-field>
         </mat-drawer-content>
         <mat-drawer #sideNav mode="side" opened="true" position="end" class="paddingStyle mat-sidenav">
+          <label  class="paddingStyle" [value]="currentUser">You are logged in as: {{currentUser}}</label>  <br/>
           <mat-form-field class="paddingStyle">
             <label>Create A New Chatroom:</label> 
             <input class=inputareastyle  matInput matNativeControl [(ngModel)]="roomName" (keyup.enter)="createChatRoom()" />
-            <button class="mat-raised-button" click="createChatRoom()">Create</button>
+            <button class="mat-raised-button" (click)="createChatRoom()">Create</button>
           </mat-form-field>
           <mat-form-field class="paddingStyle">
             <label>Select a chatroom: </label>
-            <mat-select  class=inputareastyle ></mat-select>
-            <button class="mat-raised-button">Join</button>
+            <mat-select  class=inputareastyle  #select="matSelect" >
+              <mat-option *ngFor="let chatroom of chatRoomList"  [(ngModel)]="chatroomSelect" [value]="chatroom">{{ chatroom }}</mat-option>
+            </mat-select>
+            <button class="mat-raised-button" (click)="setChatRoom()">Join</button>
           </mat-form-field>
         </mat-drawer>
       </mat-drawer-container>
