@@ -1,0 +1,12 @@
+<h2 mat-dialog-title>Welcome to CrabbyChat</h2>
+
+<mat-dialog-content>
+    <mat-label >Name: </mat-label> 
+    <mat-form-field>
+        <input matInput matNativeControl [(ngModel)]="name" matInput>
+    </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions>
+    <button class="mat-raised-button" (click)="joinChatRoom()">Join</button>
+</mat-dialog-actions>
