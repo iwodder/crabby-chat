@@ -1,3 +1,7 @@
+use crate::user::IUser;
+use crate::user::user_db_service::db_command::DbCommand;
+use rusqlite::{Connection, Error, params};
+
 pub struct UpdateUser {
     user: Box<dyn IUser>
 }

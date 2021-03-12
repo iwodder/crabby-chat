@@ -9,7 +9,13 @@ use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 use crate::user::user_db_service::DbServiceError::EmptyFile;
-use crate::user::user_db_service::db_command::{CreateUser, DbCommand, GetUser, UpdateUser};
+use crate::user::user_db_service::db_command::{delete_user, create_user, get_user, update_user, DbCommand};
+use crate::user::user_db_service::db_command::delete_user::DeleteUser;
+use crate::user::user_db_service::db_command::update_user::UpdateUser;
+use crate::user::user_db_service::db_command::get_user::GetUser;
+use crate::user::user_db_service::db_command::create_user::CreateUser;
+use crate::user::user_db_service::db_command::get_favorites::GetFavorites;
+use crate::user::user_db_service::db_command::update_favorites::UpdateFavorites;
 
 pub struct UserDbService {
     conn: Connection
@@ -55,39 +61,27 @@ impl UserDbService {
             Some(id) => id.clone(),
             None => String::new()
         };
-        GetUser::new(user_id).execute(&self.conn)
+        let retrieved_user = GetUser::new(user_id).execute(&self.conn)?;
+        GetFavorites::new(retrieved_user).execute(&self.conn)
     }
 
     pub fn delete_user(&self, mut user: Box<dyn IUser>) -> Result<(), Error> {
-        let mut delete_stmt = self.conn.prepare("DELETE FROM users WHERE user_id=?1 AND user_name=?2")?;
-        delete_stmt.execute(params![user.user_id().unwrap(), user.user_name()])?;
+        DeleteUser::new(user).execute(&self.conn);
         Ok(())
     }
 
     pub fn update_user(&self, user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
-        UpdateUser::new(user).execute(&self.conn)
+        let updated_user = UpdateUser::new(user.to_iuser()).execute(&self.conn)?;
+        UpdateFavorites::new(updated_user).execute(&self.conn)
     }
 
     pub fn get_user_favorites(&self, mut user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
-        let mut get_favs = self.conn.prepare("SELECT name FROM favorites WHERE user_id=?1")?;
-        let mut user_favs:Vec<String> = vec![];
-        let mut rows = get_favs.query(params![user.user_id().unwrap()])?;
-        while let Some(r) = rows.next()? {
-            user_favs.push(r.get(0).unwrap());
-        }
-        user.add_favorites(user_favs);
-        Ok(user)
+        GetFavorites::new(user).execute(&self.conn)
     }
 
-    pub fn update_user_favorites(&self, user: &mut dyn IUser) -> Result<(), Error> {
-        let mut update_favs = self.conn.prepare("INSERT INTO favorites (user_id, name) VALUES (?1, ?2)")?;
-        let id = user.user_id().unwrap();
-        for f in user.favorites() {
-            update_favs.execute(params![id, f]);
-        }
-        Ok(())
+    pub fn update_user_favorites(&self, user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
+        UpdateFavorites::new(user).execute(&self.conn)
     }
-
 }
 
 #[derive(Debug)]
@@ -171,7 +165,7 @@ mod tests {
     #[test]
     fn new_user_has_zero_favorites() {
         let (db_service, mut new_user) = setup();
-        new_user = db_service.get_user_favorites(Box::new(new_user)).unwrap().to_user();
+        new_user = db_service.retrieve_user(Box::new(new_user)).unwrap().to_user();
         assert_eq!(0, new_user.total_favorites());
     }
 
@@ -180,9 +174,9 @@ mod tests {
         let (db_service, mut new_user) = setup();
         new_user.add_favorites(vec![String::from("chili"), String::from("gambling"),
                  String::from("foot-bath")]);
-        db_service.update_user_favorites(&mut new_user);
-        new_user = db_service.get_user_favorites(Box::new(new_user)).unwrap().to_user();
-        assert_eq!(3, new_user.total_favorites());
+        db_service.update_user(new_user.to_iuser()).unwrap();
+        let found_user = db_service.retrieve_user(new_user.to_iuser()).unwrap();
+        assert_eq!(3, found_user.total_favorites());
     }
 
     #[test]

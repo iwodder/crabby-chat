@@ -23,12 +23,12 @@ pub fn add_favorite(db: State<Mutex<UserDbService>>, user_id: String, favorite: 
     let user = User {
         user_id: Some(user_id),
         user_name: String::new(),
-        favorite_rooms: HashSet::new()
+        favorite_rooms: favorite.split(",").map(|s| String::from(s)).collect::<HashSet<String>>()
     };
-    let r = service.retrieve_user(Box::new(user));
+
+
+    let r = service.update_user(Box::new(user));
     if let Ok(mut found) = r {
-        found.add_favorites(vec![favorite]);
-        service.update_user_favorites(found.as_mut()).unwrap();
         Ok(Json(found.to_user()))
     } else {
         Err(Status::NotFound)
