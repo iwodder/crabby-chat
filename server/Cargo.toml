@@ -15,6 +15,7 @@ threadpool = "1.8.1"
 chrono = "0.4"
 log = "0.4"
 log4rs = "1.0.0"
+uuid = { version = "0.8.2", features = ["serde", "v4"] }
 
 
 [dependencies.rocket_contrib]

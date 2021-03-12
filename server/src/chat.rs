@@ -1,9 +1,14 @@
 use crate::chat::chat_room::Extractor;
-use crate::chat::chat_data::{ChatRooms, ChatRoom, ChatUser};
+use crate::chat::chat_data::{ChatRooms, ChatRoom, ChatUser, RoomAvailable};
+use rocket::State;
+use std::sync::Mutex;
+use crate::chat::chat_manager::ChatManager;
+use rocket::response::content::Json;
 
 pub mod chat_manager;
 mod chat_room;
 mod chat_user;
+mod name_extractor;
 
 
 //TBD: Message data definition to go here.
@@ -13,7 +18,9 @@ pub mod chat_data {
 
     #[derive(Serialize, Deserialize, Debug)]
     pub struct RoomCreated {
-        pub path: String
+        pub path: String,
+        pub name: String,
+        pub id: String
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -43,6 +50,11 @@ pub mod chat_data {
         pub name: String,
         pub available: bool
     }
+
+    #[derive(Serialize,Deserialize,Debug)]
+    pub struct RoomDeleted {
+        pub room_id: String
+    }
 }
 
 pub mod chat_routes {
@@ -50,22 +62,23 @@ pub mod chat_routes {
     use rocket::State;
     use rocket_contrib::json::Json;
 
-    use crate::chat::chat_data::{ChatRoom, ChatRooms, RoomCreated, RoomAvailable};
+    use crate::chat::chat_data::{ChatRoom, ChatRooms, RoomCreated, RoomAvailable, RoomDeleted};
     use crate::chat::chat_manager::{ChatManager, Error};
+    use rocket::http::Cookies;
 
     #[post("/<name>")]
-    pub fn create_room(cm: State<Mutex<ChatManager>>, name: String) -> Result<Json<RoomCreated>, Error> {
-        let result = cm.lock().unwrap().create_new_room(name.clone());
+    pub fn create_room(cm: State<Mutex<ChatManager>>, name: String, cookies: Cookies) -> Result<Json<RoomCreated>, Error> {
+        let user_id = String::from(cookies.get("user-id").unwrap().value());
+        let result = cm.lock().unwrap().create_new_room(name.clone(), user_id);
         match result {
-            Ok(_) => {
-                Ok(Json(RoomCreated {
-                        path: name
-                    }))
-            },
-            Err(err) => {
-                Err(err)
+                Ok(mut res) => {
+                    res.path = format!("room/{}", name);
+                    Ok(Json(res))
+                },
+                Err(err) => {
+                    Err(err)
+                }
             }
-        }
     }
 
     #[get("/")]
@@ -101,6 +114,22 @@ pub mod chat_routes {
             }
         }
         Json(response)
+    }
+
+    #[delete("/<room_id>")]
+    pub fn delete_room(cm: State<Mutex<ChatManager>>, room_id: String, cookies: Cookies) -> Result<Json<RoomDeleted>, Error> {
+        let owner_id = cookies.get("user-id").unwrap().value().to_string();
+        let result = cm.lock().unwrap().delete_room(room_id.clone(), owner_id);
+        match result {
+            Ok(r) => {
+                Ok(Json(RoomDeleted{
+                    room_id
+                }))
+            },
+            Err(e) => {
+                Err(e)
+            }
+        }
     }
 }
 
