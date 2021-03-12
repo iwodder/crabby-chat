@@ -74,14 +74,6 @@ impl UserDbService {
         let updated_user = UpdateUser::new(user.to_iuser()).execute(&self.conn)?;
         UpdateFavorites::new(updated_user).execute(&self.conn)
     }
-
-    pub fn get_user_favorites(&self, mut user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
-        GetFavorites::new(user).execute(&self.conn)
-    }
-
-    pub fn update_user_favorites(&self, user: Box<dyn IUser>) -> Result<Box<dyn IUser>, Error> {
-        UpdateFavorites::new(user).execute(&self.conn)
-    }
 }
 
 #[derive(Debug)]
